@@ -8,13 +8,12 @@
 
 import UIKit
 import RealmSwift
+import ChameleonFramework
 
-class TodoListViewController: UITableViewController {
-
-    // Force unwrapping since we know it will be set on
-    // viewDidLoad and available for the rest of the controller
-    var realm: Realm!
+class TodoListViewController: SwipeTableViewController {
     var todoItems : Results<Item>?
+    
+    lazy var searchController: UISearchController = UISearchController(searchResultsController: nil)
     
     var selectedCategory : Category? {
         didSet {
@@ -24,8 +23,36 @@ class TodoListViewController: UITableViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        // Do any additional setup after loading the view, typically from a nib.
-        realm = try! Realm()
+        
+        searchController.obscuresBackgroundDuringPresentation = false
+        searchController.searchBar.placeholder = "Search \(selectedCategory?.name ?? "")"
+        searchController.searchResultsUpdater = self
+        searchController.searchBar.delegate = self
+        navigationItem.searchController = searchController
+        navigationItem.hidesSearchBarWhenScrolling = true
+        definesPresentationContext = true
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewDidAppear(animated)
+        
+        guard let color = UIColor(hexString: selectedCategory?.cellColor ?? "") else {fatalError("Could not get hex color from category")}
+        
+        title = selectedCategory!.name
+        
+        updateNavBar(withColor: color)
+    }
+    
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        
+        guard let color = UIColor(hexString: "1D9BF6") else {fatalError("Could not create color from hex")}
+        
+        updateNavBar(withColor: color)
+    }
+        
+    override func getObject(atIndexPath indexPath: IndexPath) -> Object? {
+        return todoItems?[indexPath.row]
     }
     
     //MARK: - Tableview Datasource Methods
@@ -35,11 +62,22 @@ class TodoListViewController: UITableViewController {
     }
     
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCell(withIdentifier: "TodoItemCell", for: indexPath)
+        let cell = setDelegate(tableView, cellForRowAt: indexPath, withIdentifier: "TodoItemCell")
         
-        let item = todoItems?[indexPath.row]
-        cell.textLabel?.text = item?.title ?? "No Items Available"
-        cell.accessoryType = item?.done ?? false ? .checkmark : .none
+        if let item = todoItems?[indexPath.row] {
+            if let backgroundColor = UIColor(hexString: selectedCategory!.cellColor)?.darken(byPercentage: CGFloat(indexPath.row)/CGFloat(todoItems!.count)) {
+                cell.textLabel?.text = item.title
+                cell.accessoryType = item.done ? .checkmark : .none
+                cell.backgroundColor = backgroundColor
+                cell.textLabel?.textColor = ContrastColorOf(backgroundColor, returnFlat: true)
+            }
+        } else {
+            if let backgroundColor = UIColor(hexString: selectedCategory!.cellColor){
+                cell.textLabel?.text = "No Items Available"
+                cell.backgroundColor = backgroundColor
+                cell.textLabel?.textColor = ContrastColorOf(backgroundColor, returnFlat: true)
+            }
+        }
         
         return cell
     }
@@ -104,10 +142,11 @@ class TodoListViewController: UITableViewController {
 }
 
 //MARK: - Search bar methods
-extension TodoListViewController : UISearchBarDelegate {
-
-    func searchBarSearchButtonClicked(_ searchBar: UISearchBar) {
-        todoItems = todoItems?.filter("title CONTAINS[cd] %@", searchBar.text!).sorted(byKeyPath: "dateCreated", ascending: true)
+extension TodoListViewController : UISearchResultsUpdating, UISearchBarDelegate {
+    func updateSearchResults(for searchController: UISearchController) {
+        guard let searchText = searchController.searchBar.text else {return}
+        if searchText.count == 0 {return}
+        todoItems = selectedCategory?.items.filter("title CONTAINS[cd] %@", searchText).sorted(byKeyPath: "dateCreated", ascending: true)
         
         tableView.reloadData()
     }
@@ -119,6 +158,15 @@ extension TodoListViewController : UISearchBarDelegate {
             DispatchQueue.main.async {
                 searchBar.resignFirstResponder()
             }
+            searchController.isActive = false
+        }
+    }
+    
+    func searchBarCancelButtonClicked(_ searchBar: UISearchBar) {
+        loadItems()
+        
+        DispatchQueue.main.async {
+            searchBar.resignFirstResponder()
         }
     }
 

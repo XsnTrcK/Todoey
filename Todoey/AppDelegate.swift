@@ -8,6 +8,7 @@
 
 import UIKit
 import RealmSwift
+import ChameleonFramework
 
 @UIApplicationMain
 class AppDelegate: UIResponder, UIApplicationDelegate {
@@ -18,14 +19,19 @@ class AppDelegate: UIResponder, UIApplicationDelegate {
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
         print(Realm.Configuration.defaultConfiguration.fileURL!)
         
-        let realmConfig = Realm.Configuration(schemaVersion: 1, migrationBlock: {
+        let realmConfig = Realm.Configuration(schemaVersion: 4, migrationBlock: {
             migration, oldSchemaVersion in
-            if oldSchemaVersion < 1 {
+            if oldSchemaVersion < 4 {
                 migration.enumerateObjects(ofType: Item.className(), { (_, newObject) in
                     if let newItem = newObject {
                         newItem["dateCreated"] = Date(timeIntervalSinceReferenceDate: 0)
                     }
                 })
+                migration.enumerateObjects(ofType: Category.className()) { _, newObject in
+                    if let newCategory = newObject {
+                        newCategory["cellColor"] = UIColor.randomFlat.hexValue()
+                    }
+                 }
             }
         })
         

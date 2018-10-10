@@ -8,19 +8,27 @@
 
 import UIKit
 import RealmSwift
+import ChameleonFramework
 
-class CategoryViewController: UITableViewController {
-    
-    // Force unwrapping since we know it will be set on
-    // viewDidLoad and available for the rest of the controller
-    var realm: Realm!
+class CategoryViewController: SwipeTableViewController {
     var categories: Results<Category>?
 
     override func viewDidLoad() {
         super.viewDidLoad()
-        realm = try! Realm()
         
         loadCategories()
+    }
+    
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        
+        guard let color = UIColor(hexString: "1D9BF6") else {fatalError("Could not create color from hex")}
+        
+        updateNavBar(withColor: color)
+    }
+    
+    override func getObject(atIndexPath indexPath: IndexPath) -> Object? {
+        return categories?[indexPath.row]
     }
     
     //MARK: - Table view Datasource Methods
@@ -29,9 +37,19 @@ class CategoryViewController: UITableViewController {
     }
     
     override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let dequedCell = tableView.dequeueReusableCell(withIdentifier: "CategoryCell", for: indexPath)
-        
-        dequedCell.textLabel?.text = categories?[indexPath.row].name ?? "No Categories Added Yet"
+        let dequedCell = setDelegate(tableView, cellForRowAt: indexPath, withIdentifier: "CategoryCell")
+
+        if let category = categories?[indexPath.row] {
+            dequedCell.textLabel?.text = category.name
+            let backgroundColor = UIColor(hexString: category.cellColor)!
+            dequedCell.backgroundColor = backgroundColor
+            dequedCell.textLabel?.textColor = ContrastColorOf(backgroundColor, returnFlat: true)
+        } else {
+            let backgroundColor = UIColor.randomFlat
+            dequedCell.textLabel?.text = "No Categories Added Yet"
+            dequedCell.backgroundColor = backgroundColor
+            dequedCell.textLabel?.textColor = ContrastColorOf(backgroundColor, returnFlat: true)
+        }
         
         return dequedCell
     }
@@ -78,6 +96,7 @@ class CategoryViewController: UITableViewController {
             if let nameOfCategory = textField.text {
                 let newCategory = Category()
                 newCategory.name = nameOfCategory
+                newCategory.cellColor = UIColor.randomFlat.hexValue()
                 self.save(category: newCategory)
             }
         }

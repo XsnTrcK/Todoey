@@ -11,6 +11,7 @@ import RealmSwift
 
 class Category: Object {
     @objc dynamic var name: String = ""
+    @objc dynamic var cellColor: String = ""
     
     // Neccessary to link what items are related to this category
     let items = List<Item>()
